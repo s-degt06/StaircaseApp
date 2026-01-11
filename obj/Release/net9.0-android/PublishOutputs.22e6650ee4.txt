@@ -1,0 +1,4 @@
+/home/sophia/Maui3DApp/bin/Release/net9.0-android/publish/com.companyname.maui3dapp-Signed.aab
+/home/sophia/Maui3DApp/bin/Release/net9.0-android/publish/com.companyname.maui3dapp.aab
+/home/sophia/Maui3DApp/bin/Release/net9.0-android/publish/com.companyname.maui3dapp-Signed.apk
+/home/sophia/Maui3DApp/bin/Release/net9.0-android/publish/_Microsoft.Android.Resource.Designer.dll

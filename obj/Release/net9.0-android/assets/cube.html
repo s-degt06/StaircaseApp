@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Cube</title>
+<style>
+    body, html { 
+        margin:0; 
+        padding:0; 
+        width:100%; 
+        height:100%; 
+        overflow:hidden; 
+        background: #f0f0f0;
+    }
+    
+    #container3D, #container2D {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+    
+    #container2D {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .square2d {
+        width: 200px;
+        height: 200px;
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+        background-size: 400% 400%;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        animation: gradientShift 3s ease infinite;
+        cursor: grab;
+        transform-style: preserve-3d;
+    }
+    
+    .square2d:active {
+        cursor: grabbing;
+    }
+    
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+</style>
+<script src="file:///android_asset/three.min.js"></script>
+<script>
+let scene, renderer, cube;
+let perspectiveCamera, orthoCamera;
+let is3D = true;
+
+// текущие размеры
+let targetScale = { x: 2, y: 1, z: 1 };
+
+window.onload = function () {
+    scene = new THREE.Scene();
+
+    const aspect = window.innerWidth / window.innerHeight;
+
+    perspectiveCamera = new THREE.PerspectiveCamera(60, aspect, 0.01, 100);
+    perspectiveCamera.position.z = 6;
+
+    orthoCamera = new THREE.OrthographicCamera(
+        -4 * aspect, 4 * aspect, 4, -4, 0.01, 100
+    );
+    orthoCamera.position.z = 6;
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    cube = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1), // 🔴 ВАЖНО
+        new THREE.MeshNormalMaterial()
+    );
+    scene.add(cube);
+
+    animate();
+};
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    // применяем размеры стабильно
+    cube.scale.set(
+        targetScale.x,
+        targetScale.y,
+        targetScale.z
+    );
+
+    if (is3D) cube.rotation.y += 0.01;
+
+    renderer.render(scene, is3D ? perspectiveCamera : orthoCamera);
+}
+
+window.updateCubeSize = function (w, h, d) {
+    targetScale.x = w;
+    targetScale.y = h;
+    targetScale.z = d;
+};
+
+window.setViewMode = function (mode3d) {
+    is3D = mode3d;
+    if (!is3D) cube.rotation.set(0, 0, 0);
+};
+</script>
+</head>
+<body></body>
+</html>
