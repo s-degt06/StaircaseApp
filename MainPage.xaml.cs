@@ -41,8 +41,11 @@ public partial class MainPage : ContentPage
         BindSizeControl(HeightSlider, HeightEntry);
         BindSizeControl(DepthSlider, DepthEntry);
 
-        // Bind CountEntry
         CountEntry.Completed += (s, e) => UpdateScene();
+
+        // Mode picker
+        ModePicker.SelectedIndex = 0;
+        ModePicker.SelectedIndexChanged += (s, e) => UpdateScene();
 
         // Initial update
         UpdateScene();
@@ -90,12 +93,15 @@ public partial class MainPage : ContentPage
             if (count < 1) count = 1;
         }
 
+        int mode = ModePicker.SelectedIndex;
+
         string js = string.Format(CultureInfo.InvariantCulture,
-            "updateParams({0},{1},{2},{3});",
+            "updateParams({0},{1},{2},{3},{4});",
             WidthSlider.Value,
             HeightSlider.Value,
             DepthSlider.Value,
-            count
+            count,
+            mode
         );
 
         CallJS(js);
