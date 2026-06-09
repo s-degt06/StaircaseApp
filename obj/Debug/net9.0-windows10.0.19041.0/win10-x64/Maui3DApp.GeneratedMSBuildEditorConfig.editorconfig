@@ -42,6 +42,30 @@ build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.MainPage.xaml
 build_metadata.AdditionalFiles.TargetPath = MainPage.xaml
 build_metadata.AdditionalFiles.RelativePath = MainPage.xaml
 
+[C:/Users/Юлия/Downloads/Maui3DApp/Resources/Pages/MainMenuPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.Resources.Pages.MainMenuPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Pages\MainMenuPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Pages\MainMenuPage.xaml
+
+[C:/Users/Юлия/Downloads/Maui3DApp/Resources/Pages/RoomPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.Resources.Pages.RoomPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Pages\RoomPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Pages\RoomPage.xaml
+
+[C:/Users/Юлия/Downloads/Maui3DApp/Resources/Pages/RoomResultPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.Resources.Pages.RoomResultPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Pages\RoomResultPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Pages\RoomResultPage.xaml
+
+[C:/Users/Юлия/Downloads/Maui3DApp/Resources/Pages/StairsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.Resources.Pages.StairsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Pages\StairsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Pages\StairsPage.xaml
+
 [C:/Users/Юлия/Downloads/Maui3DApp/Resources/Styles/Colors.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = Maui3DApp.Resources.Styles.Colors.xaml

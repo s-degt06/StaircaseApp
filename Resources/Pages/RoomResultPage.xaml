@@ -1,0 +1,62 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Maui3DApp.Pages.RoomResultPage"
+             Title="Результаты"
+             BackgroundColor="White">
+
+    <Grid RowDefinitions="Auto,*" Padding="10" RowSpacing="8">
+
+        <!-- Переключатель вкладок -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,*,*" ColumnSpacing="0">
+            <Button x:Name="TabResultButton"
+                    Text="Результаты"
+                    Clicked="OnTabResultClicked"
+                    BackgroundColor="#2196F3"
+                    TextColor="White"
+                    CornerRadius="0"/>
+            <Button x:Name="Tab3DButton"
+                    Grid.Column="1"
+                    Text="3D"
+                    Clicked="OnTab3DClicked"
+                    BackgroundColor="#E0E0E0"
+                    TextColor="#333333"
+                    CornerRadius="0"/>
+            <Button x:Name="Tab2DButton"
+                    Grid.Column="2"
+                    Text="2D"
+                    Clicked="OnTab2DClicked"
+                    BackgroundColor="#E0E0E0"
+                    TextColor="#333333"
+                    CornerRadius="0"/>
+        </Grid>
+
+        <!-- Вкладка: Результаты -->
+        <ScrollView x:Name="TabResultContent" Grid.Row="1" IsVisible="True">
+            <VerticalStackLayout Spacing="8" Padding="16">
+                <Label FontSize="16" FontFamily="Courier" x:Name="ResultLabel"/>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Вкладка: 3D -->
+        <WebView x:Name="WebView3D"
+                 Grid.Row="1"
+                 IsVisible="False"/>
+
+        <!-- Вкладка: 2D (заглушка) -->
+        <Grid x:Name="Tab2DContent"
+              Grid.Row="1"
+              RowDefinitions="*,Auto"
+              RowSpacing="12"
+              Padding="8"
+              IsVisible="False">
+
+            <WebView x:Name="WebView2D"
+                    Grid.Row="0"/>
+
+            <Button Grid.Row="1"
+                    Text="Экспорт PDF"
+                    Clicked="OnExportClicked"/>
+        </Grid>
+
+    </Grid>
+</ContentPage>

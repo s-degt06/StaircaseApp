@@ -518,3 +518,4 @@ c:\Users\Юлия\Downloads\Maui3DApp\bin\Debug\net9.0-windows10.0.19041.0\win10
 c:\Users\Юлия\Downloads\Maui3DApp\bin\Debug\net9.0-windows10.0.19041.0\win10-x64\three.min.js
 C:\Users\Юлия\Downloads\Maui3DApp\bin\Debug\net9.0-windows10.0.19041.0\win10-x64\OrbitControls.js
 C:\Users\Юлия\Downloads\Maui3DApp\obj\Debug\net9.0-windows10.0.19041.0\win10-x64\Maui3DApp.sourcelink.json
+C:\Users\Юлия\Downloads\Maui3DApp\bin\Debug\net9.0-windows10.0.19041.0\win10-x64\stairs2d.html

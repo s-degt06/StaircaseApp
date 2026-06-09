@@ -56,6 +56,12 @@
 
 		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+
+		<!-- Pages -->
+		<MauiXaml Update="Pages\MainMenuPage.xaml" />
+		<MauiXaml Update="Pages\RoomPage.xaml" />
+		<MauiXaml Update="Pages\StairsPage.xaml" />
+		<MauiXaml Update="Pages\RoomResultPage.xaml" />
 	</ItemGroup>
 
 	<ItemGroup>

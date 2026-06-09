@@ -1,0 +1,24 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Maui3DApp.Pages.MainMenuPage"
+             Title="Главное меню"
+             BackgroundColor="White">
+
+    <VerticalStackLayout Spacing="20"
+                         VerticalOptions="Center"
+                         HorizontalOptions="Center">
+
+        <Label Text="Выберите раздел"
+               FontSize="22"
+               HorizontalOptions="Center"/>
+
+        <Button Text="Расчёт помещения"
+                WidthRequest="260"
+                Clicked="OnRoomClicked"/>
+
+        <Button Text="Расчёт лестницы (тест)"
+                WidthRequest="260"
+                Clicked="OnStairsClicked"/>
+
+    </VerticalStackLayout>
+</ContentPage>

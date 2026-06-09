@@ -1,0 +1,94 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Maui3DApp.Pages.StairsPage"
+             Title="Расчёт лестницы"
+             BackgroundColor="White">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="10" RowSpacing="8">
+
+        <!-- Панель управления -->
+        <Grid Grid.Row="0"
+            ColumnDefinitions="Auto,*,Auto"
+            RowDefinitions="Auto,Auto,Auto,Auto"
+            ColumnSpacing="10" RowSpacing="10">
+
+            <Label Text="Width" VerticalOptions="Center"/>
+            <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="50" Maximum="2000" Value="200"/>
+            <Entry x:Name="WidthEntry"   Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
+
+            <Label Text="Height" Grid.Row="1" VerticalOptions="Center"/>
+            <Slider x:Name="HeightSlider" Grid.Row="1" Grid.Column="1" Minimum="50" Maximum="500" Value="100"/>
+            <Entry x:Name="HeightEntry"   Grid.Row="1" Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
+
+            <Label Text="Depth" Grid.Row="2" VerticalOptions="Center"/>
+            <Slider x:Name="DepthSlider" Grid.Row="2" Grid.Column="1" Minimum="50" Maximum="500" Value="100"/>
+            <Entry x:Name="DepthEntry"   Grid.Row="2" Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
+
+            <!-- Count, Diff, Middle и Mode в одну строку -->
+            <Grid Grid.Row="3" Grid.ColumnSpan="3"
+                ColumnDefinitions="*,*,*,Auto"
+                ColumnSpacing="8">
+
+                <StackLayout Orientation="Horizontal" Spacing="4">
+                    <Label Text="Count" VerticalOptions="Center"/>
+                    <Entry x:Name="CountEntry" Keyboard="Numeric" Text="1" WidthRequest="50"/>
+                </StackLayout>
+
+                <StackLayout Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <Label Text="Diff" VerticalOptions="Center"/>
+                    <Entry x:Name="DiffEntry" Keyboard="Numeric" Text="0" WidthRequest="50"/>
+                </StackLayout>
+
+                <StackLayout Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                    <Label Text="Middle" VerticalOptions="Center"/>
+                    <Entry x:Name="MiddleEntry" Keyboard="Numeric" Text="0" WidthRequest="50"/>
+                </StackLayout>
+
+                <Picker x:Name="ModePicker" Grid.Column="3" WidthRequest="100">
+                    <Picker.Items>
+                        <x:String>Mode 1</x:String>
+                        <x:String>Mode 2</x:String>
+                        <x:String>Mode 3</x:String>
+                        <x:String>Mode 4</x:String>
+                        <x:String>Mode 5</x:String>
+                    </Picker.Items>
+                </Picker>
+
+            </Grid>
+
+        </Grid>
+
+        <!-- Переключатель вкладок -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="0">
+            <Button x:Name="Tab3DButton"
+                    Text="3D"
+                    Clicked="OnTab3DClicked"
+                    BackgroundColor="#2196F3"
+                    TextColor="White"
+                    CornerRadius="0"/>
+            <Button x:Name="Tab2DButton"
+                    Grid.Column="1"
+                    Text="2D"
+                    Clicked="OnTab2DClicked"
+                    BackgroundColor="#E0E0E0"
+                    TextColor="#333333"
+                    CornerRadius="0"/>
+        </Grid>
+
+        <!-- 3D -->
+        <WebView x:Name="WebView3D" Grid.Row="2" IsVisible="True"/>
+
+        <!-- 2D -->
+        <Grid x:Name="Tab2DContent"
+            Grid.Row="2"
+            RowDefinitions="*,Auto"
+            RowSpacing="12"
+            Padding="8"
+            IsVisible="False">
+            <WebView x:Name="WebView2D"
+                    Grid.Row="0"/>
+            <Button Grid.Row="1" Text="Экспорт PDF" Clicked="OnExportClicked"/>
+        </Grid>
+
+    </Grid>
+</ContentPage>

@@ -3,26 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <title>Stacked Prisms</title>
-
 <style>
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
 canvas { display: block; }
 </style>
-
 <script src="three.min.js"></script>
 <script src="OrbitControls.js"></script>
-
 <script>
-// ─────────────────────────────────────────────
-//  Инициализация сцены
-// ─────────────────────────────────────────────
 let scene, camera, renderer, controls, mainGroup;
-let params = { w: 2, h: 1, d: 1, count: 1, mode: 0 };
+let params = { w: 2, h: 1, d: 1, count: 1, mode: 0, diff: 0, middle: 0 };
 
-const PRISM_COLOR  = 0x2196F3;
-const EDGE_COLOR   = 0x000000;
-const AMBIENT_INT  = 0.6;
-const LIGHT_INT    = 0.8;
+const PRISM_COLOR = 0x2196F3;
+const EDGE_COLOR  = 0x000000;
 
 window.onload = () => {
     scene = new THREE.Scene();
@@ -38,10 +30,8 @@ window.onload = () => {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enablePan = false;
 
-    const ambient = new THREE.AmbientLight(0xffffff, AMBIENT_INT);
-    scene.add(ambient);
-
-    const sun = new THREE.DirectionalLight(0xffffff, LIGHT_INT);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
     sun.position.set(5, 10, 7);
     scene.add(sun);
 
@@ -56,45 +46,26 @@ window.onload = () => {
 };
 
 // ─────────────────────────────────────────────
-//  Фабрики геометрий и мешей
+//  Фабрики геометрий
 // ─────────────────────────────────────────────
 
-/**
- * Клиновидная призма: нижняя грань — прямоугольник w×d,
- * верхняя грань сдвинута назад (по -Z) на d, образуя скос.
- *
- *   вид сбоку (XZ):
- *
- *   v2 ──── v4          ← верхние вершины (y = +hh, z = +hd и -hd)
- *    \         \
- *   v0 ──── v1          ← нижние вершины (y = -hh, z = +hd)
- *
- * Таким образом задняя грань вертикальна (v2-v4 и v3-v5),
- * а передняя — скошена (v0-v2 и v1-v3).
- */
 function makePrismGeometry(w, h, d) {
     const hw = w / 2, hh = h / 2, hd = d / 2;
-
-    // 6 вершин: 2 нижних (спереди) + 4 верхних (спереди и сзади)
     const verts = new Float32Array([
-      //  x     y    z
-        -hw,  -hh,  hd,   // 0  нижн-лев-перед
-         hw,  -hh,  hd,   // 1  нижн-прав-перед
-        -hw,   hh,  hd,   // 2  верх-лев-перед
-         hw,   hh,  hd,   // 3  верх-прав-перед
-        -hw,   hh, -hd,   // 4  верх-лев-зад
-         hw,   hh, -hd,   // 5  верх-прав-зад
+        -hw, -hh,  hd,
+         hw, -hh,  hd,
+        -hw,  hh,  hd,
+         hw,  hh,  hd,
+        -hw,  hh, -hd,
+         hw,  hh, -hd,
     ]);
-
-    // Грани (треугольники, CCW снаружи)
     const idx = [
-        0, 1, 2,  1, 3, 2,   // передняя скошенная (нижн → верх)
-        2, 3, 4,  3, 5, 4,   // верхняя горизонтальная
-        5, 1, 0,  4, 5, 0,   // задняя вертикальная
-        0, 2, 4,              // левый торец
-        1, 5, 3,              // правый торец
+        0,1,2, 1,3,2,
+        2,3,4, 3,5,4,
+        5,1,0, 4,5,0,
+        0,2,4,
+        1,5,3,
     ];
-
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(verts, 3));
     geo.setIndex(idx);
@@ -109,14 +80,12 @@ function makeMaterials() {
     };
 }
 
-/** Создаёт Mesh призмы с рёбрами. Геометрия и материалы передаются снаружи. */
 function makePrismMesh(geo, mat) {
     const mesh = new THREE.Mesh(geo, mat.face);
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat.edge));
     return mesh;
 }
 
-/** Создаёт Mesh параллелепипеда (Box) с рёбрами. */
 function makeBoxMesh(w, h, d, mat) {
     const geo = new THREE.BoxGeometry(w, h, d);
     const mesh = new THREE.Mesh(geo, mat.face);
@@ -125,102 +94,117 @@ function makeBoxMesh(w, h, d, mat) {
 }
 
 // ─────────────────────────────────────────────
-//  Построители режимов
+//  Центральный блок между пролётами
+//  middle=0 → один прямоугольник 2w×h×d
+//  middle=2 → два квадрата w×h×w со ступенькой
 // ─────────────────────────────────────────────
 
 /**
- * Mode 1 — одиночная лесенка:
- * блоки укладываются вверх-назад по одному.
+ * Возвращает { group, depthUsed }
+ * depthUsed — сколько места по Z занял центральный блок,
+ * чтобы хвосты знали, откуда начинать.
  */
+function makeCenterBlock(mat, { w, h, d, middle }) {
+    const group = new THREE.Group();
+
+    if (middle === 0) {
+        // Один прямоугольный блок 2w × h × d
+        group.add(makeBoxMesh(2 * w, h, w, mat));
+        return { group, depthUsed: w, heightUsed: 1 };
+    }
+
+    if (middle === 2) {
+        // Две квадратные ступени w×h×w, смещённые по Y и Z
+        // Нижняя ступень: на уровне 0, сзади
+        const step1 = makeBoxMesh(w, h, w, mat);
+        step1.position.set(-w / 2, 0, 0);
+        group.add(step1);
+
+        // Верхняя ступень: на h выше, спереди
+        const step2 = makeBoxMesh(w, h, w, mat);
+        step2.position.set(w / 2, h, 0);
+        group.add(step2);
+
+        // Общая глубина = два квадрата подряд
+        return { group, depthUsed: w, heightUsed: 2 };
+    }
+
+    // Fallback
+    group.add(makeBoxMesh(2 * w, h, w, mat));
+    return { group, depthUsed: w, heightUsed: 2 };
+}
+
+// ─────────────────────────────────────────────
+//  Построители режимов
+// ─────────────────────────────────────────────
+
 function buildMode1(group, geo, mat, { w, h, d, count }) {
     for (let i = 0; i < count; i++) {
         const mesh = makePrismMesh(geo, mat);
-        // каждый блок на h выше и на d глубже предыдущего
         mesh.position.set(0, i * h, -i * d);
         group.add(mesh);
     }
 }
 
 /**
- * Mode 2 / Mode 3 — два "хвоста" из призм по обе стороны центрального Box'а.
- *
- * Центр: широкий параллелепипед 2w × h × d.
- * Нижний хвост: уходит вниз-назад от левого (или правого) края.
- * Верхний хвост: уходит вверх-назад от правого (или левого) края.
- *
- * @param {number} mirror  +1 для mode2, -1 для mode3 — зеркалит по X
+ * Mode 2 / 3 — два пролёта + центральный блок.
+ * diff: нижний пролёт на diff ступеней меньше верхнего.
+ * mirror: +1 для mode2, -1 для mode3.
  */
-function buildModeMirrored(group, geo, mat, { w, h, d, count }, mirror) {
-    // Центральный блок на всю ширину
-    group.add(makeBoxMesh(2 * w, h, d, mat));
+function buildModeMirrored(group, geo, mat, { w, h, d, count, diff, middle }, mirror) {
+    const { group: center, depthUsed, heightUsed } = makeCenterBlock(mat, { w, h, d, middle });
+    group.add(center);
 
-    // Края центрального блока (по X)
     const leftEdgeX  = -w / 2 * mirror;
     const rightEdgeX =  w / 2 * mirror;
+    const startZ = -(depthUsed / 2 + d / 2);
 
-    // Первый блок прижат к заднему торцу центрального (z = -d/2 - d/2 = -d)
-    const startZ = -d;
+    const countLower = Math.max(1, count - diff);
+    const countUpper = count;
 
-    // Нижний хвост: вниз и назад от левого края
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < countLower; i++) {
         const mesh = makePrismMesh(geo, mat);
         mesh.position.set(leftEdgeX, -(i + 1) * h, startZ - i * d);
-        mesh.scale.z = -1;   // зеркалим скос, чтобы блок "стекал" вниз
+        mesh.scale.z = -1;
         group.add(mesh);
     }
 
-    // Верхний хвост: вверх и назад от правого края
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < countUpper; i++) {
         const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(rightEdgeX, (i + 1) * h, startZ - i * d);
+        mesh.position.set(rightEdgeX, (heightUsed + i) * h, startZ - i * d);
         group.add(mesh);
     }
 }
-
+ 
 /**
- * Mode 4 / Mode 5 — центральный квадратный Box + два ортогональных хвоста:
- *
- * Центр: квадратный параллелепипед w × h × w.
- * Нижний хвост: уходит вниз-назад (по Z), призмы повёрнуты как в mode1.
- * Верхний хвост: уходит вверх и в сторону (по X), призмы повёрнуты на 90°.
- *
- * @param {number} sideSign  +1 — хвост уходит вправо (mode4), -1 — влево (mode5)
+ * Mode 4 / 5 — квадратный центр + два ортогональных пролёта.
+ * diff: нижний пролёт на diff ступеней меньше верхнего.
+ * sideSign: +1 для mode4, -1 для mode5.
  */
-function buildModeOrthogonal(group, geo, mat, { w, h, d, count }, sideSign) {
-    // Квадратный центральный блок
+function buildModeOrthogonal(group, geo, mat, { w, h, d, count, diff }, sideSign) {
     group.add(makeBoxMesh(w, h, w, mat));
 
-    const halfW = w / 2;   // половина стороны центрального блока
-    const halfD = d / 2;   // половина глубины призмы
+    const halfW = w / 2;
+    const halfD = d / 2;
 
-    // ── Нижний хвост (по -Z, под центральным блоком) ──
-    // Первый блок: его передняя грань (z = +d/2) касается задней стенки центра (z = -w/2)
+    const countLower = Math.max(1, count - diff);
+    const countUpper = count;
+
+    // Нижний пролёт (по -Z)
     const backStartZ = -(halfW + halfD);
-
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < countLower; i++) {
         const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(
-            0,
-            -(i + 1) * h,
-            backStartZ - i * d   // каждый следующий на d дальше назад
-        );
-        mesh.scale.z = -1;       // скос смотрит вниз, как у нижних хвостов в mode2/3
+        mesh.position.set(0, -(i + 1) * h, backStartZ - i * d);
+        mesh.scale.z = -1;
         group.add(mesh);
     }
 
-    // ── Верхний хвост (по ±X, сбоку от центрального блока) ──
-    // Призма повёрнута на ±90° вокруг Y, чтобы скос шёл по X, а не по Z.
-    // Первый блок: его "передний" торец (теперь смотрит по X) касается боковой стенки центра.
+    // Верхний пролёт (по ±X)
     const sideStartX = sideSign * (halfW + halfD);
     const rotY = sideSign > 0 ? -Math.PI / 2 : Math.PI / 2;
-
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < countUpper; i++) {
         const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(
-            sideStartX + sideSign * i * d,   // удаляемся от центра
-            (i + 1) * h,
-            0
-        );
+        mesh.position.set(sideStartX + sideSign * i * d, (i + 1) * h, 0);
         mesh.rotation.y = rotY;
         group.add(mesh);
     }
@@ -229,6 +213,7 @@ function buildModeOrthogonal(group, geo, mat, { w, h, d, count }, sideSign) {
 // ─────────────────────────────────────────────
 //  Обновление сцены
 // ─────────────────────────────────────────────
+
 function updateScene() {
     if (mainGroup) scene.remove(mainGroup);
     mainGroup = new THREE.Group();
@@ -244,21 +229,24 @@ function updateScene() {
         case 4: buildModeOrthogonal(mainGroup, geo, mat, params, -1); break;
     }
 
-    // Центрируем всю группу относительно сцены
     const bbox = new THREE.Box3().setFromObject(mainGroup);
     mainGroup.position.sub(bbox.getCenter(new THREE.Vector3()));
-
     scene.add(mainGroup);
 }
 
-window.updateParams = (w, h, d, count, mode) => {
-    params = { w, h, d, count: Math.max(1, count), mode };
+window.updateParams = (w, h, d, count, mode, diff = 0, middle = 0) => {
+    params = {
+        w: w / 100,
+        h: h / 100,
+        d: d / 100,
+        count: Math.max(1, count),
+        mode,
+        diff:   Math.max(0, diff),
+        middle: middle,
+    };
     updateScene();
 };
 
-// ─────────────────────────────────────────────
-//  Рендер-петля
-// ─────────────────────────────────────────────
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
