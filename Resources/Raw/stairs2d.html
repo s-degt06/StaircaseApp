@@ -107,15 +107,34 @@ canvas.addEventListener("touchend", () => { drag = null; touches = null; });
 //  потом переводим в экранные через worldToScreen.
 // ─────────────────────────────────────────────
 
+// Делит count на нижний/верхний пролёт.
+// usable = count минус площадка (middle=0, -1) или забежные ступени (middle=2, -2).
+// База: floor -> нижний, ceil -> верхний (при нечётном usable верхний получает на 1 больше).
+// diff сдвигает ступени с нижнего пролёта на верхний.
+function splitCounts(count, diff, middle) {
+    const consumed = middle === 0 ? 1 : middle;
+    const usable = count - consumed;
+    const baseLower = Math.floor(usable / 2);
+    const baseUpper = Math.ceil(usable / 2);
+    return {
+        countLower: Math.max(0, baseLower - diff),
+        countUpper: Math.max(0, baseUpper + diff),
+    };
+}
+
 /**
  * Вид сверху: ось X — ширина, ось Z — глубина (вниз на экране).
- * Каждый блок это прямоугольник x, z, w, d.
+ * Каждая фигура — либо прямоугольник {x,z,w,d}, либо многоугольник
+ * {points:[[x,z],...]} (для забежных ступеней-вееров).
  */
 function buildRects({ w, h, d, count, mode, diff, middle }) {
     const rects = [];
 
     const add = (x, z, rw, rd, label) =>
         rects.push({ x, z, w: rw, d: rd, label });
+
+    const addPoly = (points, label) =>
+        rects.push({ points, label });
 
     if (mode === 0) {
         // Mode 1: одна цепочка по диагонали
@@ -128,22 +147,31 @@ function buildRects({ w, h, d, count, mode, diff, middle }) {
     if (mode === 1 || mode === 2) {
         const mirror = mode === 1 ? 1 : -1;
 
-        // Центральный блок
-        if (middle === 0) {
-            add(-w, -w / 2, 2 * w, w, "c");
-        } else if (middle === 2) {
-            add(-w, -w,     w,     w, "c1");
-            add(0,  0,      w,     w, "c2");
-        }
-
-        const depthUsed = middle === 2 ? w * 2 : w;
-        const startZ    = -(depthUsed / 2 + d / 2);
-
         const leftX  = -w / 2 * mirror - w / 2;
         const rightX =  w / 2 * mirror - w / 2;
 
-        const countLower = Math.max(1, count - diff);
-        const countUpper = count;
+        // Центральный блок: при middle>0 — subSteps=middle/2 забежных
+        // ступеней на каждую сторону. При subSteps=1 это просто целый
+        // квадрат (как было). При subSteps>1 — веер треугольных/
+        // четырёхугольных ступеней из общего угла P (см. fanWedgePolygons).
+        if (middle > 0) {
+            const subSteps = middle / 2;
+            if (subSteps === 1) {
+                add(leftX,  -w / 2, w, w, "c1");
+                add(rightX, -w / 2, w, w, "c2");
+            } else {
+                const Px = rightX; // общий угол P — общая внутренняя грань
+                const Pz = -w / 2;
+                fanWedgePolygons(w, subSteps, -1, Px, Pz).forEach((pts, i) => addPoly(pts, "c1_" + i));
+                fanWedgePolygons(w, subSteps, +1, Px, Pz).forEach((pts, i) => addPoly(pts, "c2_" + i));
+            }
+        } else {
+            add(-w, -w / 2, 2 * w, w, "c");
+        }
+
+        const startZ = -(w / 2 + d);
+
+        const { countLower, countUpper } = splitCounts(count, diff, middle);
 
         // Нижний пролёт
         for (let i = 0; i < countLower; i++) {
@@ -157,25 +185,43 @@ function buildRects({ w, h, d, count, mode, diff, middle }) {
     }
 
     if (mode === 3 || mode === 4) {
-        const sideSign = mode === 3 ? 1 : -1;
-
-        // Центральный квадрат
-        add(-w / 2, -w / 2, w, w, "c");
+        const sideSign = mode === 3 ? -1 : 1;
 
         const halfW = w / 2;
         const halfD = d / 2;
 
-        const countLower = Math.max(1, count - diff);
-        const countUpper = count;
+        // Центральный квадрат либо два winder-квадрата при middle=2.
+        // turnExtent — насколько площадка/винты "съедают" место у каждого пролёта
+        // (половина ширины ступени для обычной площадки, целая — для забежных).
+        let turnExtent;
+        if (middle === 2) {
+            add(-w / 2, -w, w, w, "c1");
+            add(sideSign > 0 ? 0 : -w, -w / 2, w, w, "c2");
+            turnExtent = w;
+        } else if (middle === 3) {
+            const Px = sideSign > 0 ? halfW : -halfW;
+            const Pz = -halfW;
+            const entrySign = -sideSign;
+
+            fanWedgePolygons(w, 3, entrySign, Px, Pz)
+                .forEach((pts, i) => addPoly(pts, (sideSign > 0 ? "c1_" : "c2_") + i));
+
+            turnExtent = halfW;
+        } else {
+            add(-w / 2, -w / 2, w, w, "c");
+            turnExtent = halfW;
+        }
+
+        const { countLower, countUpper } = splitCounts(count, diff, middle);
 
         // Нижний пролёт (по Z)
-        const backStartZ = -(halfW + halfD + d / 2);
+        const backStartZ = -(turnExtent + halfD + d / 2);
         for (let i = 0; i < countLower; i++) {
             add(-w / 2, backStartZ - i * d, w, d, "");
         }
 
         // Верхний пролёт (по X)
-        const sideStartX = sideSign * (halfW + halfD) - d / 2;
+        const sideStartX = sideSign * (turnExtent + d / 2) - d / 2;
         for (let i = 0; i < countUpper; i++) {
             add(sideStartX + sideSign * i * d, -w / 2, d, w, "");
         }
@@ -183,6 +229,35 @@ function buildRects({ w, h, d, count, mode, diff, middle }) {
     }
 
     return rects;
+}
+
+// Веер забежных ступеней одного winder-квадрата стороны w. Общий угол —
+// точка P = (px, pz). "Входная" сторона квадрата направлена по оси X со
+// знаком entrySign, "выходная" — всегда в +Z. Делит прямой угол (90°) на
+// subSteps равных секторов; если граница 45° (диагональ квадрата) попадает
+// строго внутрь сектора, добавляет внешний угол квадрата как 4-ю вершину
+// (получается четырёхугольник вместо треугольника). Возвращает массив
+// многоугольников в мировых координатах.
+function fanWedgePolygons(w, subSteps, entrySign, px, pz) {
+    const angleStep = 90 / subSteps;
+    const boundary = (deg) => {
+        const rad = deg * Math.PI / 180;
+        return deg <= 45
+            ? { u: w, v: w * Math.tan(rad) }
+            : { u: w / Math.tan(rad), v: w };
+    };
+    const polys = [];
+    for (let i = 0; i < subSteps; i++) {
+        const a0 = i * angleStep;
+        const a1 = (i + 1) * angleStep;
+        const b0 = boundary(a0);
+        const b1 = boundary(a1);
+        const pts = [[0, 0], [b0.u, b0.v]];
+        if (a0 < 45 && a1 > 45) pts.push([w, w]); // сектор накрывает внешний угол
+        pts.push([b1.u, b1.v]);
+        polys.push(pts.map(([u, v]) => [px + entrySign * u, pz + v]));
+    }
+    return polys;
 }
 
 // ─────────────────────────────────────────────
@@ -206,16 +281,25 @@ function draw() {
     const rects = buildRects(params);
 
     for (const r of rects) {
-        const [sx, sy] = worldToScreen(r.x, r.z);
-        const sw = r.w * cam.scale;
-        const sd = r.d * cam.scale;
-
         ctx.fillStyle   = FILL;
         ctx.strokeStyle = STROKE;
         ctx.lineWidth   = 1.5;
 
         ctx.beginPath();
-        ctx.rect(sx, sy, sw, sd);
+        if (r.points) {
+            const [x0, z0] = worldToScreen(r.points[0][0], r.points[0][1]);
+            ctx.moveTo(x0, z0);
+            for (let i = 1; i < r.points.length; i++) {
+                const [x, z] = worldToScreen(r.points[i][0], r.points[i][1]);
+                ctx.lineTo(x, z);
+            }
+            ctx.closePath();
+        } else {
+            const [sx, sy] = worldToScreen(r.x, r.z);
+            const sw = r.w * cam.scale;
+            const sd = r.d * cam.scale;
+            ctx.rect(sx, sy, sw, sd);
+        }
         ctx.fill();
         ctx.stroke();
     }

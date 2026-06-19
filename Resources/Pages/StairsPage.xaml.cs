@@ -1,4 +1,6 @@
 using System.Globalization;
+using Maui3DApp.Services;
+using CommunityToolkit.Maui.Storage;
 
 namespace Maui3DApp.Pages;
 
@@ -81,8 +83,33 @@ public partial class StairsPage : ContentPage
     }
 
     private async void OnExportClicked(object sender, EventArgs e)
-        => await DisplayAlert("Экспорт", "PDF сохранён (заглушка)", "OK");
+    {
+        int count = 1;
+        int.TryParse(CountEntry.Text, out count);
+        int diff = 0;
+        int.TryParse(DiffEntry.Text, out diff);
+        int middle = 0;
+        int.TryParse(MiddleEntry.Text, out middle);
 
+        byte[] pdf = PdfExporter.Export(
+            (float)WidthSlider.Value,
+            (float)HeightSlider.Value,
+            (float)DepthSlider.Value,
+            count,
+            ModePicker.SelectedIndex,
+            diff,
+            middle
+        );
+
+        using var stream = new MemoryStream(pdf);
+        string fileName = $"stairs-{DateTime.Now:yyyy-MM-dd-HH-mm}.pdf";
+        var result = await FileSaver.Default.SaveAsync(fileName, stream, CancellationToken.None);
+        
+        if (result.IsSuccessful)
+            await DisplayAlert("Готово", "Файл сохранён", "OK");
+        else
+            await DisplayAlert("Ошибка", "Не удалось сохранить файл", "OK");
+    }
     // ── WebGL ─────────────────────────────────────────────
 
     private static string LoadHtml(string fileName)

@@ -13,8 +13,8 @@ canvas { display: block; }
 let scene, camera, renderer, controls, mainGroup;
 let params = { w: 2, h: 1, d: 1, count: 1, mode: 0, diff: 0, middle: 0 };
 
-const PRISM_COLOR = 0x2196F3;
-const EDGE_COLOR  = 0x000000;
+const STEP_COLOR = 0x2196F3;
+const EDGE_COLOR = 0x000000;
 
 window.onload = () => {
     scene = new THREE.Scene();
@@ -45,45 +45,11 @@ window.onload = () => {
     });
 };
 
-// ─────────────────────────────────────────────
-//  Фабрики геометрий
-// ─────────────────────────────────────────────
-
-function makePrismGeometry(w, h, d) {
-    const hw = w / 2, hh = h / 2, hd = d / 2;
-    const verts = new Float32Array([
-        -hw, -hh,  hd,
-         hw, -hh,  hd,
-        -hw,  hh,  hd,
-         hw,  hh,  hd,
-        -hw,  hh, -hd,
-         hw,  hh, -hd,
-    ]);
-    const idx = [
-        0,1,2, 1,3,2,
-        2,3,4, 3,5,4,
-        5,1,0, 4,5,0,
-        0,2,4,
-        1,5,3,
-    ];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(verts, 3));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    return geo;
-}
-
 function makeMaterials() {
     return {
-        face: new THREE.MeshLambertMaterial({ color: PRISM_COLOR, side: THREE.DoubleSide }),
+        face: new THREE.MeshLambertMaterial({ color: STEP_COLOR, side: THREE.DoubleSide }),
         edge: new THREE.LineBasicMaterial({ color: EDGE_COLOR }),
     };
-}
-
-function makePrismMesh(geo, mat) {
-    const mesh = new THREE.Mesh(geo, mat.face);
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat.edge));
-    return mesh;
 }
 
 function makeBoxMesh(w, h, d, mat) {
@@ -93,140 +59,221 @@ function makeBoxMesh(w, h, d, mat) {
     return mesh;
 }
 
-// ─────────────────────────────────────────────
-//  Центральный блок между пролётами
-//  middle=0 → один прямоугольник 2w×h×d
-//  middle=2 → два квадрата w×h×w со ступенькой
-// ─────────────────────────────────────────────
-
-/**
- * Возвращает { group, depthUsed }
- * depthUsed — сколько места по Z занял центральный блок,
- * чтобы хвосты знали, откуда начинать.
- */
-function makeCenterBlock(mat, { w, h, d, middle }) {
-    const group = new THREE.Group();
-
-    if (middle === 0) {
-        // Один прямоугольный блок 2w × h × d
-        group.add(makeBoxMesh(2 * w, h, w, mat));
-        return { group, depthUsed: w, heightUsed: 1 };
+// Призма произвольного многоугольника (в плане, координаты [x,z]),
+// выдавленная вверх на height. points2D задаются в мировых X/Z —
+// результирующий меш не требует дополнительного position.x/z.
+function makePrismMesh(points2D, height, mat) {
+    const shape = new THREE.Shape();
+    shape.moveTo(points2D[0][0], -points2D[0][1]);
+    for (let i = 1; i < points2D.length; i++) {
+        shape.lineTo(points2D[i][0], -points2D[i][1]);
     }
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geo, mat.face);
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat.edge));
+    return mesh;
+}
+
+// Веер забежных ступеней одного winder-квадрата стороны w. Общий угол —
+// точка P = (px, pz). "Входная" сторона квадрата направлена по оси X со
+// знаком entrySign, "выходная" — всегда в +Z. Делит прямой угол (90°) на
+// subSteps равных секторов; если граница 45° (диагональ квадрата) попадает
+// строго внутрь сектора, добавляет внешний угол квадрата как 4-ю вершину
+// (получается четырёхугольник вместо треугольника).
+function addFanSteps(group, mat, w, h, subSteps, entrySign, px, pz, yStart, reverseHeight = false) {
+    const angleStep = 90 / subSteps;
+    const boundary = (deg) => {
+        const rad = deg * Math.PI / 180;
+        return deg <= 45
+            ? { u: w, v: w * Math.tan(rad) }
+            : { u: w / Math.tan(rad), v: w };
+    };
+    for (let i = 0; i < subSteps; i++) {
+        const a0 = i * angleStep;
+        const a1 = (i + 1) * angleStep;
+        const b0 = boundary(a0);
+        const b1 = boundary(a1);
+        const pts = [[0, 0], [b0.u, b0.v]];
+        if (a0 < 45 && a1 > 45) pts.push([w, w]);
+        pts.push([b1.u, b1.v]);
+        const worldPts = pts.map(([u, v]) => [px + entrySign * u, pz + v]);
+        const mesh = makePrismMesh(worldPts, h, mat);
+        const yIndex = reverseHeight ? (subSteps - 1 - i) : i;
+        mesh.position.y = yStart + yIndex * h;
+        group.add(mesh);
+    }
+}
+
+// Делит count на нижний/верхний пролёт.
+// usable = count минус площадка (middle=0, -1) или забежные ступени (middle=1, -2).
+// База: floor -> нижний, ceil -> верхний (при нечётном usable верхний получает на 1 больше).
+// diff сдвигает ступени с нижнего пролёта на верхний.
+function splitCounts(count, diff, middle) {
+    const consumed = middle === 0 ? 1 : middle;
+    const usable = count - consumed;
+    const baseLower = Math.floor(usable / 2);
+    const baseUpper = Math.ceil(usable / 2);
+    return {
+        countLower: Math.max(0, baseLower - diff),
+        countUpper: Math.max(0, baseUpper + diff),
+    };
+}
+
+// Строит пролёт из count ступеней.
+// Ступени идут вверх по Y и вперёд по dirZ (+1 или -1).
+// У каждой ступени кроме верхней depth = d + h (перекрывает подступёнок).
+// Возвращает группу где первая ступень начинается с Y=0, Z=0 (передняя грань).
+function buildFlight(mat, w, h, d, count, dirZ) {
+    const group = new THREE.Group();
+    for (let i = 0; i < count; i++) {
+        const isTop = (i === count - 1);
+        const stepD = isTop ? d : d + h;
+        const mesh = makeBoxMesh(w, h, stepD, mat);
+        // Y: центр ступени
+        const cy = i * h + h / 2;
+        // Z: передняя грань ступени = dirZ * i * d, центр = передняя + dirZ * stepD/2
+        const cz = dirZ * (i * d + stepD / 2);
+        mesh.position.set(0, cy, cz);
+        group.add(mesh);
+    }
+    return group;
+}
+
+// Режим 0: один пролёт, идёт в +Z
+function buildMode1(group, mat, { w, h, d, count }) {
+    const flight = buildFlight(mat, w, h, d, count, +1);
+    group.add(flight);
+}
+
+// Режимы 1/2: П-образная лестница
+// Нижний пролёт идёт в +Z, верхний — тоже в +Z но смещён по X и Y
+// Соединены площадкой сверху нижнего пролёта
+function buildModeMirrored(group, mat, { w, h, d, count, diff, middle }, mirror) {
+    const { countLower, countUpper } = splitCounts(count, diff, middle);
+
+    // Нижний пролёт — на -X*mirror стороне, идёт в +Z
+    const lowerFlight = buildFlight(mat, w, h, d, countLower, +1);
+    lowerFlight.position.x = -w / 2 * mirror;
+    lowerFlight.position.y = 0;
+    lowerFlight.position.z = 0;
+    group.add(lowerFlight);
+
+    // Площадка соединяет два пролёта сверху нижнего.
+    // Z центр площадки/винтов = глубина нижнего пролёта + w/2
+    const platformZ = countLower * d + w / 2;
+    let upperFlightY;
+
+    if (middle > 0) {
+        // Забежные ступени: middle штук, по subSteps = middle/2 на каждую сторону.
+        const subSteps = middle / 2;
+
+        if (subSteps === 1) {
+            // Одна ступень на сторону — это просто целый квадрат, как раньше.
+            const winder1 = makeBoxMesh(w, h, w, mat);
+            winder1.position.set(-w / 2 * mirror, countLower * h + h / 2, platformZ);
+            group.add(winder1);
+
+            const winder2 = makeBoxMesh(w, h, w, mat);
+            winder2.position.set(w / 2 * mirror, countLower * h + h * 1.5, platformZ);
+            group.add(winder2);
+        } else {
+            // Веер из subSteps треугольных/четырёхугольных ступеней на сторону,
+            // расходящийся из общего угла P между пролётами и площадками.
+            // P всегда на X=0 (общая грань между двумя winder-квадратами).
+            const Pz = platformZ - w / 2;
+            addFanSteps(group, mat, w, h, subSteps, -mirror, 0, Pz, countLower * h);
+            addFanSteps(group, mat, w, h, subSteps,  mirror, 0, Pz, countLower * h + subSteps * h, true); // ← добавлен true
+        }
+
+        upperFlightY = countLower * h + 2 * subSteps * h; // стоит на последней ступени второй группы
+    } else {
+        const platformY = countLower * h + h / 2;
+        const platform = makeBoxMesh(w * 2, h, w, mat);
+        platform.position.set(0, platformY, platformZ);
+        group.add(platform);
+
+        upperFlightY = countLower * h + h; // стоит на площадке
+    }
+
+    // Верхний пролёт — на +X*mirror стороне, идёт в -Z (обратно)
+    const upperFlight = buildFlight(mat, w, h, d, countUpper, -1);
+    upperFlight.position.x = w / 2 * mirror;
+    upperFlight.position.y = upperFlightY;
+    upperFlight.position.z = countLower * d;
+    group.add(upperFlight);
+}
+
+// Режимы 3/4: Г-образная лестница
+// Нижний пролёт идёт в +Z, верхний — в +X или -X
+function buildModeOrthogonal(group, mat, { w, h, d, count, diff, middle }, sideSign) {
+    const { countLower, countUpper } = splitCounts(count, diff, middle);
+
+    // Нижний пролёт — в +Z
+    const lowerFlight = buildFlight(mat, w, h, d, countLower, +1);
+    lowerFlight.position.set(0, 0, 0);
+    group.add(lowerFlight);
+
+    // Площадка сверху нижнего пролёта
+    const platformZ = countLower * d + w / 2;
+    let upperFlightX, upperFlightY;
 
     if (middle === 2) {
-        // Две квадратные ступени w×h×w, смещённые по Y и Z
-        // Нижняя ступень: на уровне 0, сзади
-        const step1 = makeBoxMesh(w, h, w, mat);
-        step1.position.set(-w / 2, 0, 0);
-        group.add(step1);
+        // Забежные ступени: вместо одной площадки — два квадрата.
+        // Первый — над нижним пролётом (X=0).
+        const winder1 = makeBoxMesh(w, h, w, mat);
+        winder1.position.set(0, countLower * h + h / 2, platformZ);
+        group.add(winder1);
 
-        // Верхняя ступень: на h выше, спереди
-        const step2 = makeBoxMesh(w, h, w, mat);
-        step2.position.set(w / 2, h, 0);
-        group.add(step2);
+        // Второй — на шаг выше и сдвинут в сторону верхнего пролёта.
+        const winder2 = makeBoxMesh(w, h, w, mat);
+        winder2.position.set(-sideSign * w, countLower * h + h * 1.5, platformZ);
+        group.add(winder2);
 
-        // Общая глубина = два квадрата подряд
-        return { group, depthUsed: w, heightUsed: 2 };
+        upperFlightX = -sideSign * (w + w / 2); // боковой торец второго винта
+        upperFlightY = countLower * h + 2 * h; // стоит на втором винте
+    } else if (middle === 3)
+    {
+        const Pz = platformZ - w / 2;
+
+        addFanSteps(group, mat, w, h, 3, sideSign, -sideSign * w / 2, Pz, countLower * h);
+
+        upperFlightX = -sideSign * (w / 2);
+        upperFlightY = countLower * h + 3 * h;
+    }
+    else {
+        const platformY = countLower * h + h / 2;
+        const platform = makeBoxMesh(w, h, w, mat);
+        platform.position.set(0, platformY, platformZ);
+        group.add(platform);
+
+        upperFlightX = -sideSign * w / 2; // боковой торец площадки
+        upperFlightY = countLower * h + h;
     }
 
-    // Fallback
-    group.add(makeBoxMesh(2 * w, h, w, mat));
-    return { group, depthUsed: w, heightUsed: 2 };
+    // Верхний пролёт — в ±X, начинается с бокового торца площадки/винта
+    // Поворачиваем buildFlight (который идёт в +Z) на 90° вокруг Y
+    const upperFlight = buildFlight(mat, w, h, d, countUpper, +1);
+    upperFlight.rotation.y = -sideSign * Math.PI / 2;
+    upperFlight.position.x = upperFlightX;
+    upperFlight.position.y = upperFlightY;
+    upperFlight.position.z = platformZ;
+    group.add(upperFlight);
 }
-
-// ─────────────────────────────────────────────
-//  Построители режимов
-// ─────────────────────────────────────────────
-
-function buildMode1(group, geo, mat, { w, h, d, count }) {
-    for (let i = 0; i < count; i++) {
-        const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(0, i * h, -i * d);
-        group.add(mesh);
-    }
-}
-
-/**
- * Mode 2 / 3 — два пролёта + центральный блок.
- * diff: нижний пролёт на diff ступеней меньше верхнего.
- * mirror: +1 для mode2, -1 для mode3.
- */
-function buildModeMirrored(group, geo, mat, { w, h, d, count, diff, middle }, mirror) {
-    const { group: center, depthUsed, heightUsed } = makeCenterBlock(mat, { w, h, d, middle });
-    group.add(center);
-
-    const leftEdgeX  = -w / 2 * mirror;
-    const rightEdgeX =  w / 2 * mirror;
-    const startZ = -(depthUsed / 2 + d / 2);
-
-    const countLower = Math.max(1, count - diff);
-    const countUpper = count;
-
-    for (let i = 0; i < countLower; i++) {
-        const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(leftEdgeX, -(i + 1) * h, startZ - i * d);
-        mesh.scale.z = -1;
-        group.add(mesh);
-    }
-
-    for (let i = 0; i < countUpper; i++) {
-        const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(rightEdgeX, (heightUsed + i) * h, startZ - i * d);
-        group.add(mesh);
-    }
-}
- 
-/**
- * Mode 4 / 5 — квадратный центр + два ортогональных пролёта.
- * diff: нижний пролёт на diff ступеней меньше верхнего.
- * sideSign: +1 для mode4, -1 для mode5.
- */
-function buildModeOrthogonal(group, geo, mat, { w, h, d, count, diff }, sideSign) {
-    group.add(makeBoxMesh(w, h, w, mat));
-
-    const halfW = w / 2;
-    const halfD = d / 2;
-
-    const countLower = Math.max(1, count - diff);
-    const countUpper = count;
-
-    // Нижний пролёт (по -Z)
-    const backStartZ = -(halfW + halfD);
-    for (let i = 0; i < countLower; i++) {
-        const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(0, -(i + 1) * h, backStartZ - i * d);
-        mesh.scale.z = -1;
-        group.add(mesh);
-    }
-
-    // Верхний пролёт (по ±X)
-    const sideStartX = sideSign * (halfW + halfD);
-    const rotY = sideSign > 0 ? -Math.PI / 2 : Math.PI / 2;
-    for (let i = 0; i < countUpper; i++) {
-        const mesh = makePrismMesh(geo, mat);
-        mesh.position.set(sideStartX + sideSign * i * d, (i + 1) * h, 0);
-        mesh.rotation.y = rotY;
-        group.add(mesh);
-    }
-}
-
-// ─────────────────────────────────────────────
-//  Обновление сцены
-// ─────────────────────────────────────────────
 
 function updateScene() {
     if (mainGroup) scene.remove(mainGroup);
     mainGroup = new THREE.Group();
 
-    const geo = makePrismGeometry(params.w, params.h, params.d);
     const mat = makeMaterials();
 
     switch (params.mode) {
-        case 0: buildMode1(mainGroup, geo, mat, params); break;
-        case 1: buildModeMirrored(mainGroup, geo, mat, params, +1); break;
-        case 2: buildModeMirrored(mainGroup, geo, mat, params, -1); break;
-        case 3: buildModeOrthogonal(mainGroup, geo, mat, params, +1); break;
-        case 4: buildModeOrthogonal(mainGroup, geo, mat, params, -1); break;
+        case 0: buildMode1(mainGroup, mat, params); break;
+        case 1: buildModeMirrored(mainGroup, mat, params, +1); break;
+        case 2: buildModeMirrored(mainGroup, mat, params, -1); break;
+        case 3: buildModeOrthogonal(mainGroup, mat, params, +1); break;
+        case 4: buildModeOrthogonal(mainGroup, mat, params, -1); break;
     }
 
     const bbox = new THREE.Box3().setFromObject(mainGroup);
@@ -236,13 +283,13 @@ function updateScene() {
 
 window.updateParams = (w, h, d, count, mode, diff = 0, middle = 0) => {
     params = {
-        w: w / 100,
-        h: h / 100,
-        d: d / 100,
-        count: Math.max(1, count),
+        w:      w / 100,
+        h:      h / 100,
+        d:      d / 100,
+        count:  Math.max(1, count),
         mode,
         diff:   Math.max(0, diff),
-        middle: middle,
+        middle,
     };
     updateScene();
 };
