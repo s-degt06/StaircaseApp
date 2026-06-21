@@ -16,7 +16,13 @@ public static class PdfExporter
         const float padding = 20f;
 
         var shapes = StairsLayout.Build(w, h, d, count, mode, diff, middle);
-        var allPoints = shapes.SelectMany(s => s.Points).ToList();
+
+        (float X, float Z) Rotate((float X, float Z) p)
+            => (-p.Z, p.X);
+        var allPoints = shapes
+            .SelectMany(s => s.Points)
+            .Select(Rotate)
+            .ToList();
 
         // Находим bounding box чертежа
         float minX = allPoints.Min(p => p.X);
@@ -71,9 +77,20 @@ public static class PdfExporter
         {
             var pts = shape.Points;
             using var path = new SKPath();
-            path.MoveTo(offsetX + pts[0].X * scale, offsetZ + pts[0].Z * scale);
+            var p0 = Rotate(pts[0]);
+
+            path.MoveTo(
+                offsetX + p0.X * scale,
+                offsetZ + p0.Z * scale);
+
             for (int i = 1; i < pts.Count; i++)
-                path.LineTo(offsetX + pts[i].X * scale, offsetZ + pts[i].Z * scale);
+            {
+                var p = Rotate(pts[i]);
+
+                path.LineTo(
+                    offsetX + p.X * scale,
+                    offsetZ + p.Z * scale);
+            }
             path.Close();
 
             canvas.DrawPath(path, fillPaint);

@@ -9,6 +9,7 @@ canvas { display: block; }
 </style>
 <script src="three.min.js"></script>
 <script src="OrbitControls.js"></script>
+<script src="stairsGeometry.js"></script>
 <script>
 let scene, camera, renderer, controls, mainGroup;
 let params = { w: 2, h: 1, d: 1, count: 1, mode: 0, diff: 0, middle: 0 };
@@ -76,49 +77,17 @@ function makePrismMesh(points2D, height, mat) {
     return mesh;
 }
 
-// Веер забежных ступеней одного winder-квадрата стороны w. Общий угол —
-// точка P = (px, pz). "Входная" сторона квадрата направлена по оси X со
-// знаком entrySign, "выходная" — всегда в +Z. Делит прямой угол (90°) на
-// subSteps равных секторов; если граница 45° (диагональ квадрата) попадает
-// строго внутрь сектора, добавляет внешний угол квадрата как 4-ю вершину
-// (получается четырёхугольник вместо треугольника).
+// Веер забежных ступеней одного winder-квадрата стороны w (см. описание
+// в stairsGeometry.js). Точки сектора и индекс по высоте теперь считаются
+// общими функциями fanWedgePolygons/fanYIndex — здесь только построение
+// мешей и их расстановка по Y.
 function addFanSteps(group, mat, w, h, subSteps, entrySign, px, pz, yStart, reverseHeight = false) {
-    const angleStep = 90 / subSteps;
-    const boundary = (deg) => {
-        const rad = deg * Math.PI / 180;
-        return deg <= 45
-            ? { u: w, v: w * Math.tan(rad) }
-            : { u: w / Math.tan(rad), v: w };
-    };
+    const polys = fanWedgePolygons(w, subSteps, entrySign, px, pz);
     for (let i = 0; i < subSteps; i++) {
-        const a0 = i * angleStep;
-        const a1 = (i + 1) * angleStep;
-        const b0 = boundary(a0);
-        const b1 = boundary(a1);
-        const pts = [[0, 0], [b0.u, b0.v]];
-        if (a0 < 45 && a1 > 45) pts.push([w, w]);
-        pts.push([b1.u, b1.v]);
-        const worldPts = pts.map(([u, v]) => [px + entrySign * u, pz + v]);
-        const mesh = makePrismMesh(worldPts, h, mat);
-        const yIndex = reverseHeight ? (subSteps - 1 - i) : i;
-        mesh.position.y = yStart + yIndex * h;
+        const mesh = makePrismMesh(polys[i], h, mat);
+        mesh.position.y = yStart + fanYIndex(subSteps, i, reverseHeight) * h;
         group.add(mesh);
     }
-}
-
-// Делит count на нижний/верхний пролёт.
-// usable = count минус площадка (middle=0, -1) или забежные ступени (middle=1, -2).
-// База: floor -> нижний, ceil -> верхний (при нечётном usable верхний получает на 1 больше).
-// diff сдвигает ступени с нижнего пролёта на верхний.
-function splitCounts(count, diff, middle) {
-    const consumed = middle === 0 ? 1 : middle;
-    const usable = count - consumed;
-    const baseLower = Math.floor(usable / 2);
-    const baseUpper = Math.ceil(usable / 2);
-    return {
-        countLower: Math.max(0, baseLower - diff),
-        countUpper: Math.max(0, baseUpper + diff),
-    };
 }
 
 // Строит пролёт из count ступеней.
@@ -184,7 +153,7 @@ function buildModeMirrored(group, mat, { w, h, d, count, diff, middle }, mirror)
             // P всегда на X=0 (общая грань между двумя winder-квадратами).
             const Pz = platformZ - w / 2;
             addFanSteps(group, mat, w, h, subSteps, -mirror, 0, Pz, countLower * h);
-            addFanSteps(group, mat, w, h, subSteps,  mirror, 0, Pz, countLower * h + subSteps * h, true); // ← добавлен true
+            addFanSteps(group, mat, w, h, subSteps,  mirror, 0, Pz, countLower * h + subSteps * h, true);
         }
 
         upperFlightY = countLower * h + 2 * subSteps * h; // стоит на последней ступени второй группы

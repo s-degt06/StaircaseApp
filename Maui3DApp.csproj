@@ -65,7 +65,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Ab4d.SharpEngine" Version="3.2.9386" />
 		<PackageReference Include="CommunityToolkit.Maui" Version="9.1.1" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
@@ -73,4 +72,21 @@
 		<PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.8" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Compile Remove="Maui3DApp.Tests/**/*.cs" />
+		<None Remove="Maui3DApp.Tests/**" />
+		<Compile Remove="Maui3DApp.Tests/obj/**" />
+		<Compile Remove="Maui3DApp.Tests/bin/**" />
+	</ItemGroup>
+	
+	<ItemGroup>
+	  <ProjectReference Include="Maui3DApp.Core\Maui3DApp.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="Maui3DApp.Tests/**/*.cs" />
+		<None Remove="Maui3DApp.Tests/**" />
+		<Compile Remove="Maui3DApp.Core/**/*.cs" />
+		<None Remove="Maui3DApp.Core/**" />
+	</ItemGroup>
 </Project>
