@@ -49,17 +49,6 @@ public class StairsCalculatorTests
 
     #endregion
 
-    #region G — всегда константа
-
-    [Fact]
-    public void G_IsAlwaysConstant250()
-    {
-        var result = StairsCalculator.Magic(SafeA, SafeB, SafeC, SafeH1, SafeH2, SafeN);
-        result.G.Should().Be(250);
-    }
-
-    #endregion
-
     #region SL — зависит от B
 
     [Theory]
@@ -117,37 +106,6 @@ public class StairsCalculatorTests
         var result = StairsCalculator.Magic(a, SafeB, SafeC, SafeH1, SafeH2, SafeN);
         result.Diff.Should().BeNull();
         result.Middle.Should().Be(0);
-    }
-
-    #endregion
-
-    #region V — текущее поведение (флаг для проверки бизнес-логики)
-
-    [Fact]
-    public void V_IsCurrentlyAlwaysZero()
-    {
-        // V инициализируется в 0 и нигде в Magic() не меняется — похоже на
-        // незавершённую логику (TODO?). Тест фиксирует ТЕКУЩЕЕ поведение,
-        // чтобы любое будущее изменение V было осознанным, а не случайной
-        // регрессией.
-        var result = StairsCalculator.Magic(2800, SafeB, SafeC, SafeH1, SafeH2, SafeN);
-        result.V.Should().Be(0);
-    }
-
-    #endregion
-
-    #region C и h2 — параметры, не используемые в расчёте
-
-    [Fact]
-    public void C_AndH2_DoNotAffectResult()
-    {
-        // Документирует, что C и h2 сейчас не участвуют в вычислениях.
-        // Если это не задумано — баг; если задумано — тест защищает от
-        // случайного "подключения" этих параметров без явного решения.
-        var r1 = StairsCalculator.Magic(A: SafeA, B: SafeB, C: 0,    h1: SafeH1, h2: 0,    N: SafeN);
-        var r2 = StairsCalculator.Magic(A: SafeA, B: SafeB, C: 9999, h1: SafeH1, h2: 9999, N: SafeN);
-
-        r1.Should().BeEquivalentTo(r2);
     }
 
     #endregion

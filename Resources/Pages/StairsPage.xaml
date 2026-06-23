@@ -12,15 +12,15 @@
             RowDefinitions="Auto,Auto,Auto,Auto"
             ColumnSpacing="10" RowSpacing="10">
 
-            <Label Text="Width" VerticalOptions="Center"/>
+            <Label Text="Ширина" VerticalOptions="Center"/>
             <Slider x:Name="WidthSlider" Grid.Column="1" Minimum="50" Maximum="2000" Value="200"/>
             <Entry x:Name="WidthEntry"   Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
 
-            <Label Text="Height" Grid.Row="1" VerticalOptions="Center"/>
+            <Label Text="Высота" Grid.Row="1" VerticalOptions="Center"/>
             <Slider x:Name="HeightSlider" Grid.Row="1" Grid.Column="1" Minimum="50" Maximum="500" Value="100"/>
             <Entry x:Name="HeightEntry"   Grid.Row="1" Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
 
-            <Label Text="Depth" Grid.Row="2" VerticalOptions="Center"/>
+            <Label Text="Глубина" Grid.Row="2" VerticalOptions="Center"/>
             <Slider x:Name="DepthSlider" Grid.Row="2" Grid.Column="1" Minimum="50" Maximum="500" Value="100"/>
             <Entry x:Name="DepthEntry"   Grid.Row="2" Grid.Column="2" Keyboard="Numeric" WidthRequest="60"/>
 
@@ -30,27 +30,27 @@
                 ColumnSpacing="8">
 
                 <StackLayout Orientation="Horizontal" Spacing="4">
-                    <Label Text="Count" VerticalOptions="Center"/>
+                    <Label Text="Ступ." VerticalOptions="Center"/>
                     <Entry x:Name="CountEntry" Keyboard="Numeric" Text="1" WidthRequest="50"/>
                 </StackLayout>
 
                 <StackLayout Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                    <Label Text="Diff" VerticalOptions="Center"/>
+                    <Label Text="Разн." VerticalOptions="Center"/>
                     <Entry x:Name="DiffEntry" Keyboard="Numeric" Text="0" WidthRequest="50"/>
                 </StackLayout>
 
                 <StackLayout Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                    <Label Text="Middle" VerticalOptions="Center"/>
+                    <Label Text="Центр" VerticalOptions="Center"/>
                     <Entry x:Name="MiddleEntry" Keyboard="Numeric" Text="0" WidthRequest="50"/>
                 </StackLayout>
 
                 <Picker x:Name="ModePicker" Grid.Column="3" WidthRequest="100">
                     <Picker.Items>
-                        <x:String>Mode 1</x:String>
-                        <x:String>Mode 2</x:String>
-                        <x:String>Mode 3</x:String>
-                        <x:String>Mode 4</x:String>
-                        <x:String>Mode 5</x:String>
+                        <x:String>Маршевая</x:String>
+                        <x:String>П-образная</x:String>
+                        <x:String>П-образная (зеркальная)</x:String>
+                        <x:String>Г-образная</x:String>
+                        <x:String>Г-образная (зеркальная)</x:String>
                     </Picker.Items>
                 </Picker>
 

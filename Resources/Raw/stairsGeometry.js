@@ -128,7 +128,7 @@ function buildRects({ w, h, d, count, mode, diff, middle }) {
     }
 
     if (mode === 3 || mode === 4) {
-        const sideSign = mode === 3 ? -1 : 1;
+        const sideSign = mode === 3 ? 1 : -1;
         const halfW = w / 2;
         const halfD = d / 2;
 

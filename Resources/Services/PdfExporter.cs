@@ -97,9 +97,114 @@ public static class PdfExporter
             canvas.DrawPath(path, strokePaint);
         }
 
+        // --- Размерные линии (ширина) ---
+
+        // Координаты конкретной фигуры в системе страницы (после поворота/масштаба).
+        (float MinX, float MaxX, float MinY, float MaxY) RotatedBounds(IEnumerable<StairShape> group)
+        {
+            var pagePts = group
+                .SelectMany(s => s.Points)
+                .Select(Rotate)
+                .Select(p => (X: offsetX + p.X * scale, Y: offsetZ + p.Z * scale))
+                .ToList();
+            return (pagePts.Min(p => p.X), pagePts.Max(p => p.X),
+                    pagePts.Min(p => p.Y), pagePts.Max(p => p.Y));
+        }
+
+        bool isUnmirroredL = mode == 4;
+
+        // 1) Площадка / блок забежных ступеней — во всех режимах, где он есть (1..4).
+        var platformShapes = shapes.Where(s => s.IsPlatform).ToList();
+        if (platformShapes.Count > 0)
+        {
+            var pb = RotatedBounds(platformShapes);
+            DrawWidthDimension(
+                canvas,
+                pb.MinX, pb.MaxX,
+                isUnmirroredL ? pb.MaxY : pb.MinY,
+                scale,
+                above: !isUnmirroredL); // в mode==3 — под платформой, иначе над
+        }
+
+        // 2) Самая правая (верхняя) ступень.
+        var stepShapes = shapes.Where(s => !s.IsPlatform).ToList();
+        if (stepShapes.Count > 0)
+        {
+            var upperFlight = stepShapes.Where(s => s.Flight == 1).ToList();
+
+            // В режиме 3 (он же "режим 4" по вашей нумерации) — просто самая
+            // правая ступень среди всех, без привязки к "верхнему" пролёту,
+            // т.к. боковой пролёт там не "вытягивается" вправо по странице.
+            var rightmost = stepShapes
+                .OrderByDescending(s =>
+                    s.Points.Select(Rotate)
+                            .Max(p => offsetX + p.X * scale))
+                .First();
+
+            var sb = RotatedBounds(new[] { rightmost });
+            DrawWidthDimension(canvas, sb.MinX, sb.MaxX, sb.MinY, scale, above: true);
+        }
+
         doc.EndPage();
         doc.Close();
 
         return stream.ToArray();
+    }
+
+    // Рисует горизонтальную размерную линию (выносные линии + стрелки + текст)
+    // над (above=true) или под (above=false) указанным отрезком [xMin..xMax] на
+    // уровне yEdge (координаты страницы). Значение для подписи вычисляется как
+    // фактическая протяжённость отрезка в мировых единицах (xMax-xMin)/scale —
+    // то есть всегда соответствует тому, что нарисовано на странице.
+    private static void DrawWidthDimension(
+        SKCanvas canvas, float xMin, float xMax, float yEdge, float scale, bool above)
+    {
+        const float gap      = 18f; // отступ размерной линии от контура фигуры
+        const float arrowLen = 6f;
+        const float arrowWing = 3f;
+        const float fontSize = 13f;
+
+        float y = above ? yEdge - gap : yEdge + gap;
+
+        using var linePaint = new SKPaint
+        {
+            Color       = SKColors.Black,
+            StrokeWidth = 1f,
+            Style       = SKPaintStyle.Stroke,
+            IsAntialias = true,
+        };
+
+        // выносные линии от контура фигуры до размерной линии
+        canvas.DrawLine(xMin, yEdge, xMin, y, linePaint);
+        canvas.DrawLine(xMax, yEdge, xMax, y, linePaint);
+
+        // сама размерная линия
+        canvas.DrawLine(xMin, y, xMax, y, linePaint);
+
+        void Arrow(float x, int dir)
+        {
+            using var arrowPath = new SKPath();
+            arrowPath.MoveTo(x, y);
+            arrowPath.LineTo(x + dir * arrowLen, y - arrowWing);
+            arrowPath.MoveTo(x, y);
+            arrowPath.LineTo(x + dir * arrowLen, y + arrowWing);
+            canvas.DrawPath(arrowPath, linePaint);
+        }
+
+        Arrow(xMin, +1);
+        Arrow(xMax, -1);
+
+        float value = MathF.Round((xMax - xMin) / scale);
+
+        using var textPaint = new SKPaint
+        {
+            Color       = SKColors.Black,
+            TextSize    = fontSize,
+            TextAlign   = SKTextAlign.Center,
+            IsAntialias = true,
+        };
+
+        float textY = above ? y - 4f : y + fontSize + 2f;
+        canvas.DrawText($"{value:0}", (xMin + xMax) / 2f, textY, textPaint);
     }
 }

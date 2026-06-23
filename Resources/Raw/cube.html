@@ -241,8 +241,8 @@ function updateScene() {
         case 0: buildMode1(mainGroup, mat, params); break;
         case 1: buildModeMirrored(mainGroup, mat, params, +1); break;
         case 2: buildModeMirrored(mainGroup, mat, params, -1); break;
-        case 3: buildModeOrthogonal(mainGroup, mat, params, +1); break;
-        case 4: buildModeOrthogonal(mainGroup, mat, params, -1); break;
+        case 3: buildModeOrthogonal(mainGroup, mat, params, -1); break;
+        case 4: buildModeOrthogonal(mainGroup, mat, params, +1); break;
     }
 
     const bbox = new THREE.Box3().setFromObject(mainGroup);

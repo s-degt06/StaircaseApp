@@ -6,7 +6,9 @@ namespace Maui3DApp.Models;
 // Прямоугольники тоже хранятся как многоугольники (4 вершины) — это
 // позволяет в одной модели представить и обычные ступени/площадки,
 // и треугольные/четырёхугольные забежные ступени.
-public record StairShape(IReadOnlyList<(float X, float Z)> Points);
+// IsPlatform — фигура относится к площадке/блоку забежных ступеней (не сама ступень).
+// Flight     — 0: нижний/единственный пролёт, 1: верхний (или боковой в Г-режимах) пролёт.
+public record StairShape(IReadOnlyList<(float X, float Z)> Points, bool IsPlatform = false, int Flight = 0);
 
 public static class StairsLayout
 {
@@ -31,14 +33,14 @@ public static class StairsLayout
     {
         var shapes = new List<StairShape>();
 
-        void Add(float x, float z, float rw, float rd)
+        void Add(float x, float z, float rw, float rd, bool isPlatform = false, int flight = 0)
             => shapes.Add(new StairShape(new[]
             {
                 (x, z), (x + rw, z), (x + rw, z + rd), (x, z + rd),
-            }));
+            }, isPlatform, flight));
 
-        void AddPoly(IEnumerable<(float X, float Z)> points)
-            => shapes.Add(new StairShape(points.ToList()));
+        void AddPoly(IEnumerable<(float X, float Z)> points, bool isPlatform = false, int flight = 0)
+            => shapes.Add(new StairShape(points.ToList(), isPlatform, flight));
 
         if (mode == 0)
         {
@@ -63,33 +65,33 @@ public static class StairsLayout
                 int subSteps = middle / 2;
                 if (subSteps == 1)
                 {
-                    Add(leftX,  -w / 2, w, w);
-                    Add(rightX, -w / 2, w, w);
+                    Add(leftX,  -w / 2, w, w, isPlatform: true);
+                    Add(rightX, -w / 2, w, w, isPlatform: true);
                 }
                 else
                 {
-                    float px = rightX; // общий угол P — общая внутренняя грань
+                    float px = 0;
                     float pz = -w / 2;
                     foreach (var poly in FanWedgePolygons(w, subSteps, -1, px, pz))
-                        AddPoly(poly);
+                        AddPoly(poly, isPlatform: true);
                     foreach (var poly in FanWedgePolygons(w, subSteps, 1, px, pz))
-                        AddPoly(poly);
+                        AddPoly(poly, isPlatform: true);
                 }
             }
             else
             {
-                Add(-w, -w / 2, 2 * w, w);
+                Add(-w, -w / 2, 2 * w, w, isPlatform: true);
             }
 
-            float startZ = -(w / 2 + d / 2);
+            float startZ = -w / 2 - d;
 
             var (countLower, countUpper) = SplitCounts(count, diff, middle);
 
             for (int i = 0; i < countLower; i++)
-                Add(leftX, startZ - i * d, w, d);
+                Add(leftX, startZ - i * d, w, d, flight: 0);
 
             for (int i = 0; i < countUpper; i++)
-                Add(rightX, startZ - i * d, w, d);
+                Add(rightX, startZ - i * d, w, d, flight: 1);
 
             return shapes;
         }
@@ -107,13 +109,13 @@ public static class StairsLayout
             float turnExtent;
             if (middle == 2)
             {
-                Add(-w / 2, -w, w, w);
-                Add(sideSign > 0 ? 0 : -w, -w / 2, w, w);
+                Add(-w / 2, -w, w, w, isPlatform: true);
+                Add(sideSign > 0 ? 0 : -w, -w / 2, w, w, isPlatform: true);
                 turnExtent = w;
             }
             else
             {
-                Add(-w / 2, -w / 2, w, w);
+                Add(-w / 2, -w / 2, w, w, isPlatform: true);
                 turnExtent = halfW;
             }
 
@@ -121,11 +123,11 @@ public static class StairsLayout
 
             float backStartZ = -(turnExtent + halfD + d / 2);
             for (int i = 0; i < countLower; i++)
-                Add(-w / 2, backStartZ - i * d, w, d);
+                Add(-w / 2, backStartZ - i * d, w, d, flight: 0);
 
             float sideStartX = sideSign * (turnExtent + d / 2) - d / 2;
             for (int i = 0; i < countUpper; i++)
-                Add(sideStartX + sideSign * i * d, -w / 2, d, w);
+                Add(sideStartX + sideSign * i * d, -w / 2, d, w, flight: 1);
 
             return shapes;
         }

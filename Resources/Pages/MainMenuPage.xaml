@@ -12,11 +12,11 @@
                FontSize="22"
                HorizontalOptions="Center"/>
 
-        <Button Text="Расчёт помещения"
+        <Button Text="Расчёт по размерам помещения"
                 WidthRequest="260"
                 Clicked="OnRoomClicked"/>
 
-        <Button Text="Расчёт лестницы (тест)"
+        <Button Text="Моделирование лестницы"
                 WidthRequest="260"
                 Clicked="OnStairsClicked"/>
 
